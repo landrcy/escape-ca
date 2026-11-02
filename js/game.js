@@ -28,7 +28,7 @@ for(const k in CAST){const d=document.createElement('div');d.className='card';d.
 goB.onclick=()=>who&&begin();
 addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=1;
  if(k==' '){if(state=='title')toIntro();else if(state=='intro')toSelect();else if(state=='select'&&who)begin()}
- if(k=='r'&&state=='over')begin()});
+ if(k=='r'&&state=='over')begin();if(k=='c'&&state=='play')P.crouch^=1;if((k==' '||k=='f')&&state=='qte')mash()});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
 // =====================================================================
 //  WORLD: hand-laid campus (buildings w/ carved hallways + open outdoor)
@@ -261,32 +261,56 @@ const tufts=[];for(let z=0;z<H;z++)for(let x=0;x<W;x++)if(F[z][x]=='grass'&&walk
 const tuftG=new THREE.ConeGeometry(.12,.45,4).translate(0,.22,0);inst(tuftG,new THREE.MeshStandardMaterial({color:0x1d3014,roughness:1}),tufts);
 
 // =====================================================================
-//  SPRITES (clean sheets built by tools/build_sprites.py: 256x512 cells,
-//  bottom-aligned, alpha keyed by flood-fill so dark clothes stay solid)
+//  3D CHARACTERS: procedural low-poly rigs (hips > torso > head/arms, hips > legs)
 // =====================================================================
-const tl=new THREE.TextureLoader();const SHEETS={};
-const FR={'ashaad-back':8,'emmanuel-back':8,'landry-back':8,'ashaad-run':6,'emmanuel-run':6,'landry-run':6,'julian-chase':6,'verity-chase':6};
-function sheetTex(name){if(!SHEETS[name]){const t=tl.load(`assets/sprites/${name}.png`);t.colorSpace=THREE.SRGBColorSpace;t.generateMipmaps=false;t.minFilter=THREE.LinearFilter;t.magFilter=THREE.LinearFilter;t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;SHEETS[name]=t}return SHEETS[name]}
-const spriteGeo=new THREE.PlaneGeometry(1,1).translate(0,.5,0);
-function actor(h,glow=.22,tint=0xffffff){const t=new THREE.Texture();const mat=new THREE.MeshLambertMaterial({map:t,alphaTest:.45,side:THREE.DoubleSide,color:tint,emissive:tint,emissiveMap:t,emissiveIntensity:glow});
- const m=new THREE.Mesh(spriteGeo,mat);m.scale.set(h*.5,h,1);m.userData={h,sheet:null,frame:-1,flip:false};scene.add(m);
- const sh=new THREE.Mesh(new THREE.CircleGeometry(.45,20).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0,transparent:true,opacity:.55,depthWrite:false}));sh.position.y=.03;scene.add(sh);m.userData.shadow=sh;return m}
-function setFrame(a,name,f,flip=false){const u=a.userData,n=FR[name];f=((f%n)+n)%n;
- if(u.sheet!==name){const base=sheetTex(name),t=base.clone();t.needsUpdate=true;t.repeat.set(1/n,1);a.material.map=a.material.emissiveMap=t;a.material.needsUpdate=true;u.sheet=name;u.tex=t;u.frame=-1}
- if(u.frame===f&&u.flip===flip)return;u.frame=f;u.flip=flip;
- if(flip){u.tex.repeat.x=-1/n;u.tex.offset.x=(f+1)/n}else{u.tex.repeat.x=1/n;u.tex.offset.x=f/n}}
-// make sure every sheet image starts loading now (clones share the image)
-Object.keys(FR).forEach(sheetTex);
-const jul=actor(2.35,.35,0xffd0d0);const jl=new THREE.PointLight(0xff1010,6,7,2);scene.add(jl);
-const ver=actor(2.25,.35,0xe0d0ff);ver.visible=ver.userData.shadow.visible=false;
+const faceTex=(kind,skin,hair)=>ctex(256,256,(g,w,h)=>{g.fillStyle=skin;g.fillRect(0,0,w,h);
+ if(kind=='verity'){g.fillStyle='#f5d21a';g.beginPath();g.arc(128,128,124,0,7);g.fill();g.fillStyle='#000';g.beginPath();g.ellipse(88,100,14,30,0,0,7);g.ellipse(168,100,14,30,0,0,7);g.fill();g.lineWidth=14;g.beginPath();g.arc(128,130,80,.25,Math.PI-.25);g.stroke();g.fillStyle='rgba(120,0,0,.7)';for(let i=0;i<5;i++)g.fillRect(84+i*20,190+Math.random()*10,4,30+Math.random()*30);return}
+ if(kind=='julian'){g.fillStyle='rgba(0,0,0,.35)';g.fillRect(0,0,w,h);g.fillStyle='#000';g.beginPath();g.ellipse(90,105,26,32,0,0,7);g.ellipse(166,105,26,32,0,0,7);g.fill();g.fillStyle='#f22';g.beginPath();g.arc(92,108,5,0,7);g.arc(164,108,5,0,7);g.fill();g.fillStyle='#120000';g.beginPath();g.ellipse(128,190,62,22,0,0,7);g.fill();g.fillStyle='#ddd';for(let i=0;i<10;i++){g.fillRect(72+i*11,172,6,14);g.fillRect(72+i*11,196,6,12)}g.fillStyle=hair;g.fillRect(0,0,w,40);return}
+ g.fillStyle=hair;g.fillRect(0,0,w,46);g.fillStyle='#fff';g.fillRect(70,100,36,18);g.fillRect(150,100,36,18);g.fillStyle='#1a1008';g.fillRect(80,101,16,16);g.fillRect(160,101,16,16);g.fillStyle=hair;g.fillRect(66,84,44,8);g.fillRect(146,84,44,8);g.fillStyle='rgba(60,20,20,.8)';g.fillRect(100,180,56,8)});
+const LOOKS={ashaad:{skin:'#7a5440',hair:'#1a120c',shirt:0xd2d1d6,pants:0x0e141d,shoe:0x4b4c50},
+ emmanuel:{skin:'#5a3d2c',hair:'#120c08',shirt:0x62435f,pants:0x0b0c0b,shoe:0x060504},
+ landry:{skin:'#c99a82',hair:'#3a2a20',shirt:0x6a8dd7,pants:0x090f1d,shoe:0x12141b},
+ julian:{skin:'#b8a89c',hair:'#0c0808',shirt:0x18131a,pants:0x1e1918,shoe:0x080606,kind:'julian',h:1.22},
+ verity:{skin:'#3f2d10',hair:'#2a1a06',shirt:0x463a1a,pants:0x2a2010,shoe:0x040301,kind:'verity',h:1.12}};
+const BX=(w,h,d,y=0)=>new THREE.BoxGeometry(w,h,d).translate(0,y,0);
+function rig(key,glow=0){const L=LOOKS[key],std=c=>new THREE.MeshStandardMaterial({color:c,roughness:.8,emissive:c,emissiveIntensity:glow});
+ const skinM=std(new THREE.Color(L.skin).getHex()),shirtM=std(L.shirt),pantsM=std(L.pants),shoeM=std(L.shoe);
+ const root=new THREE.Group(),hips=new THREE.Group(),torso=new THREE.Group();root.add(hips);hips.position.y=.95;hips.add(torso);
+ const add=(p,geo,m,x=0,y=0,z=0)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=false;p.add(o);return o};
+ add(hips,BX(.36,.22,.22,0),pantsM);add(torso,BX(.42,.5,.24,.3),shirtM);add(torso,BX(.2,.1,.16,.6),skinM);
+ const neck=new THREE.Group();neck.position.y=.62;torso.add(neck);
+ const headM=[skinM,skinM,new THREE.MeshStandardMaterial({color:L.hair,roughness:.9}),skinM,new THREE.MeshStandardMaterial({map:faceTex(L.kind,L.skin,L.hair),roughness:.7,emissive:L.kind=='verity'?0xffd000:0,emissiveIntensity:L.kind=='verity'?.35:0}),skinM];
+ if(L.kind!='verity')headM[1]=headM[0]=headM[3]=headM[5];
+ const head=add(neck,BX(.28,.32,.28,.17),headM);if(!L.kind)add(neck,BX(.3,.09,.3,.36),headM[2]);if(L.kind=='verity'){add(neck,BX(.34,.26,.12,.12),shirtM,0,0,-.12)}
+ const limb=(p,x,y,len,m1,m2,w=.12,end)=>{const a=new THREE.Group();a.position.set(x,y,0);p.add(a);add(a,BX(w,len/2,w,-len/4),m1);const b=new THREE.Group();b.position.y=-len/2;a.add(b);add(b,BX(w*.9,len/2,w*.9,-len/4),m2);if(end)add(b,end,shoeM,0,-len/2,.05);return[a,b]};
+ const al=limb(torso,-.27,.52,.62,shirtM,skinM,.11),ar=limb(torso,.27,.52,.62,shirtM,skinM,.11);
+ const ll=limb(hips,-.11,-.06,.86,pantsM,pantsM,.15,BX(.15,.08,.26)),lr=limb(hips,.11,-.06,.86,pantsM,pantsM,.15,BX(.15,.08,.26));
+ root.scale.setScalar(L.h||1);root.userData={hips,torso,neck,al,ar,ll,lr,crouch:0,key,mats:[skinM,shirtM,pantsM,shoeM]};
+ const sh=new THREE.Mesh(new THREE.CircleGeometry(.45,20).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0,transparent:true,opacity:.55,depthWrite:false}));sh.position.y=.03;scene.add(sh);root.userData.shadow=sh;scene.add(root);return root}
+// style: 'run' | 'back' | 'idle' | 'strafe' | 'julian' | 'verity' | 'grab'
+function pose(r,ph,amp,style,crouchT,dt,tt){const u=r.userData;u.crouch+=(crouchT-u.crouch)*Math.min(1,dt*8);const c=u.crouch,s=Math.sin(ph),s2=Math.sin(ph*2),k=Math.max(0,Math.sin(ph+1.6));
+ let lean=.06*amp,legA=.55*amp,knee=.7*amp,armA=.6*amp,elbow=-.4,armOff=0,headY=0,headX=0,bob=Math.abs(s)*.06*amp,twist=0,armX=0;
+ if(style=='back'){lean=-.2;legA=.4*amp;knee=.9*amp;armA=.25*amp;armOff=-.9;elbow=-1.2;headY=Math.sin(tt*1.7)*.9;bob=Math.abs(s)*.08*amp}
+ if(style=='strafe'){twist=.5*Math.sign(amp);lean=.1;legA=.45;knee=.6;armA=.5}
+ if(style=='julian'){lean=.55;legA=.8*amp;knee=1.0*amp;armA=.25*amp;armOff=-1.35;elbow=-.15;headX=-.45+Math.sin(tt*23)*.06*(amp>0);headY=Math.sin(tt*17)*.12;bob=Math.abs(s)*.12*amp}
+ if(style=='verity'){lean=-.04;legA=.38*amp;knee=.25*amp;armA=.05;armOff=0;elbow=0;headX=.05;headY=0;twist=0;bob=.02;r.userData.neck.rotation.z=.45+Math.sin(tt*3)*.1;armX=.15}
+ if(style=='grab'){lean=.35;armOff=-1.55;elbow=-.1;armA=.08;legA=.1;knee=.1;headX=-.2;headY=Math.sin(tt*30)*.15}
+ if(style=='idle'){const b=Math.sin(tt*2.2);lean=.02;legA=0;knee=0;armA=0;elbow=-.15;bob=b*.01;headY=Math.sin(tt*.7)*.25}
+ if(style!='verity')u.neck.rotation.z=0;
+ u.hips.position.y=.95-c*.42+bob;u.hips.rotation.y=twist*.4;u.torso.rotation.x=lean+c*.35;u.torso.rotation.y=-twist*.3;u.neck.rotation.x=headX-c*.25;u.neck.rotation.y=headY;
+ u.ll[0].rotation.x=-s*legA-c*1.25;u.lr[0].rotation.x=s*legA-c*1.25;u.ll[1].rotation.x=(Math.max(0,-Math.sin(ph))*knee)+c*2.0;u.lr[1].rotation.x=(Math.max(0,Math.sin(ph))*knee)+c*2.0;
+ u.al[0].rotation.x=s*armA+armOff+c*.3;u.ar[0].rotation.x=-s*armA+armOff+c*.3;u.al[1].rotation.x=u.ar[1].rotation.x=elbow-c*.5;u.al[0].rotation.z=-armX;u.ar[0].rotation.z=armX;
+ r.userData.shadow.position.set(r.position.x,.03,r.position.z)}
+const jul=rig('julian',.12);const jl=new THREE.PointLight(0xff1010,6,7,2);scene.add(jl);
+const ver=rig('verity',.1);ver.visible=ver.userData.shadow.visible=false;
 let me=null;
 const flash=new THREE.SpotLight(0xfff1d8,60,30,.48,.45,1.6);scene.add(flash,flash.target);
 
 // =====================================================================
 //  GAME
 // =====================================================================
-const P={x:0,z:0,yaw:0,stride:0,mv:0},J={x:0,z:0,stride:0,vx:0,vz:0},V={x:0,z:0,on:false,stride:0,vx:0,vz:0};
-let keys={},t0=0,spd=3.6,lastScare=-99,frozenUntil=0,lastZone='',jSeen=false,envK=1,camYaw=0,camPos=new THREE.Vector3();
+const P={x:0,z:0,yaw:0,stride:0,mv:0,crouch:0},J={x:0,z:0,stride:0,vx:0,vz:0},V={x:0,z:0,on:false,stride:0,vx:0,vz:0};
+let qte=null,grace=0,hidden=false,keys={},t0=0,spd=3.6,lastScare=-99,frozenUntil=0,lastZone='',jSeen=false,envK=1,camYaw=0,camPos=new THREE.Vector3();
 const solidCell=(gx,gz)=>gx<0||gz<0||gx>=W||gz>=H||!walk(gx,gz);
 const hit=(x,z,r)=>{for(const gx of[Math.round((x-r)/S),Math.round((x+r)/S)])for(const gz of[Math.round((z-r)/S),Math.round((z+r)/S)])if(solidCell(gx,gz))return true;
  for(const[cx,cz,cr]of COLLIDE)if(Math.hypot(x-cx,z-cz)<cr+r)return true;return false};
@@ -298,21 +322,22 @@ let DF=null,dfT=0;function buildDF(){DF=new Int16Array(W*H).fill(-1);const sx=Ma
  for(let i=0;i<q.length;i++){const c=q[i],x=c%W,z=(c/W)|0;for(const[a,b]of dirs){const nx=x+a,nz=z+b;if(walk(nx,nz)&&DF[nx+nz*W]<0){DF[nx+nz*W]=DF[c]+1;q.push(nx+nz*W)}}}}
 function nextStep(M){const gx=Math.round(M.x/S),gz=Math.round(M.z/S);const here=DF[gx+gz*W];if(here<=1||here<0)return[P.x,P.z];let best=null,bd=here;
  for(const[a,b]of dirs){const d=DF[(gx+a)+(gz+b)*W];if(walk(gx+a,gz+b)&&d>=0&&d<bd){bd=d;best=[(gx+a)*S,(gz+b)*S]}}return best||[P.x,P.z]}
-function begin(){audio();startDrone();startAmb();if(me){scene.remove(me,me.userData.shadow)}me=actor(1.85,.2);
+function begin(){audio();startDrone();startAmb();if(me){scene.remove(me,me.userData.shadow)}catches=0;$('qte').hidden=true;me=rig(who,.06);P.crouch=0;qte=null;grace=0;
  [P.x,P.z]=pStart;[J.x,J.z]=jStart;[V.x,V.z]=vStart;V.on=false;ver.visible=ver.userData.shadow.visible=false;P.yaw=0;camYaw=0;P.stride=0;spd=3.4;t0=performance.now();lastScare=-99;lastZone='';state='play';
  camPos.set(P.x,2,P.z+3);buildDF();
- ['title','intro','sel','over'].forEach(i=>$(i).hidden=true);$('over').classList.remove('strobe');$('hud').hidden=false;document.body.classList.remove('shake');
+ ['title','intro','sel','over'].forEach(i=>$(i).hidden=true);$('over').classList.remove('strobe');$('hud').hidden=false;$('crouchB').hidden=false;document.body.classList.remove('shake');
  if(!COARSE)renderer.domElement.requestPointerLock?.()}
 $('over').onclick=()=>state=='over'&&begin();
 renderer.domElement.onclick=()=>{if(state=='play'&&!COARSE)renderer.domElement.requestPointerLock?.()};
 addEventListener('mousemove',e=>{if(document.pointerLockElement&&state=='play')P.yaw-=e.movementX*.0024});
-if(COARSE){$('touch').style.display='grid';$('touch').querySelectorAll('button').forEach(b=>{const k=b.dataset.k;b.ontouchstart=e=>{e.preventDefault();keys[k]=1};b.ontouchend=b.ontouchcancel=()=>keys[k]=0});
+if(COARSE){$('touch').style.display='grid';$('touch').querySelectorAll('button').forEach(b=>{const k=b.dataset.k;b.ontouchstart=e=>{e.preventDefault();if(k=='c'){if(state=='play')P.crouch^=1;return}if(k=='mash'){mash();return}keys[k]=1};b.ontouchend=b.ontouchcancel=()=>keys[k]=0});
  let lx=null;renderer.domElement.addEventListener('touchmove',e=>{const x=e.touches[0].clientX;if(lx!=null)P.yaw-=(x-lx)*.006;lx=x},{passive:true});renderer.domElement.addEventListener('touchend',()=>lx=null)}
+const cb=$('crouchB');cb.onclick=()=>{if(state=='play')P.crouch^=1};cb.ontouchstart=e=>{e.preventDefault();cb.onclick()};const qb=$('qkeyB');qb.onclick=e=>{e.stopPropagation();mash()};qb.ontouchstart=e=>{e.preventDefault();mash()};
 const SCARE={};[['j','assets/anims/julian-jumpscare.png','assets/julian-horror.jpg'],['v','assets/anims/verity-jumpscare.png','assets/verity-landry-evil.jpg']].forEach(([k,a,b])=>{SCARE[k]={u:b,sheet:false};const i=new Image();i.onload=()=>SCARE[k]={u:a,sheet:true};i.src=a});
 function jumpscare(k,now){const sc=SCARE[k],img=sc.u;$('js').classList.toggle('sheet',sc.sheet);lastScare=now/1000;frozenUntil=now+(RM?400:800);const j=$('js');j.style.backgroundImage=`url(${img})`;j.classList.remove('on');void j.offsetWidth;j.classList.add('on');
  scream(false);if(!RM)document.body.classList.add('shake');setTimeout(()=>{j.classList.remove('on');document.body.classList.remove('shake')},RM?400:780)}
 function showZone(z,sub){const e=$('zone');e.innerHTML=`${z}<small>${sub}</small>`;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,2400)}
-function gotcha(now,by){state='over';scream(true);document.exitPointerLock?.();$('hud').hidden=true;$('over').hidden=false;
+function gotcha(now,by){state='over';scream(true);document.exitPointerLock?.();$('hud').hidden=true;$('crouchB').hidden=true;$('obj').textContent='';$('over').hidden=false;
  $('score').textContent=`${CAST[who].n} survived ${((now-t0)/1000).toFixed(1)}s`;$('overline').textContent=by=='v'?'verity was never landry.':'julian has finded '+CAST[who].n.toLowerCase()+'.';
  if(!RM){$('over').classList.add('strobe');document.body.classList.add('shake')}}
 // ambience: fluorescent hum indoors, crickets outdoors, footsteps
@@ -325,11 +350,16 @@ function footstep(outside){if(!ac)return;const d=.07,b=ac.createBuffer(1,ac.samp
 let last=performance.now(),poolT=0,flick={};
 const fwd=y=>[-Math.sin(y),-Math.cos(y)],rgt=y=>[Math.cos(y),-Math.sin(y)];
 function flickerVal(grp,tt,id){if(grp==2)return Math.random()<.015?1:0;if(grp==1){const n=Math.sin(tt*37+id)*Math.sin(tt*13.3+id*2);return n>.75?.1:(Math.random()<.03?.2:1)}return .93+Math.sin(tt*100+id)*.04}
-function animActor(a,M,dt,moved,name,camX,camZ,camRx,camRz){ // monster sprite: side sheet, flip by screen-space direction
- M.stride+=moved;const f=Math.floor(M.stride/.32);const sx=M.vx*camRx+M.vz*camRz;if(Math.abs(sx)>.05)a.userData.face=sx<0;setFrame(a,name,f,!!a.userData.face);
- a.rotation.y=Math.atan2(camX-a.position.x,camZ-a.position.z);a.userData.shadow.position.set(a.position.x,.03,a.position.z)}
+function animActor(a,M,dt,moved,style,tt){M.stride+=moved;if(Math.hypot(M.vx,M.vz)>.2)a.rotation.y=Math.atan2(M.vx,M.vz);
+ const stalk=hidden&&state=='play';pose(a,M.stride*(style=='julian'?2.6:3.4),moved>.001?1:0,state=='qte'&&qte?.by==(a==jul?'j':'v')?'grab':style,stalk?1:0,dt,tt)}
+function mash(){if(!qte)return;qte.n++;tone('square',300+qte.n*40,200,.08,.12);const b=$('qbar');b.style.width=Math.min(100,qte.n/qte.need*100)+'%';$('qkey').textContent=qte.n%2?'F':'SPACE';
+ if(qte.n>=qte.need){const M=qte.by=='j'?J:V,[sx,sz]=qte.by=='j'?jStart:vStart;const d=Math.hypot(P.x-M.x,P.z-M.z)||1;let pushed=false;for(let r=9;r>2&&!pushed;r--){const nx=P.x+(M.x-P.x)/d*r,nz=P.z+(M.z-P.z)/d*r;if(!hit(nx,nz,.3)){M.x=nx;M.z=nz;pushed=true}}if(!pushed){M.x=sx;M.z=sz}
+  qte=null;state='play';grace=performance.now()+2500;$('qte').hidden=true;tone('sawtooth',200,900,.3,.2);showZone('BROKE FREE','run.');catches++}}
+let catches=0,qte0by='j';
+function startQTE(now,by){state='qte';qte0by=by;qte={start0:now,by,n:0,need:10+catches*4,end:now+(2600-Math.min(900,catches*250))};$('qte').hidden=false;$('qwho').textContent=(by=='j'?'JULIAN':'VERITY')+' HAS YOU';$('qbar').style.width='0%';scream(false);if(!RM)document.body.classList.add('shake');setTimeout(()=>document.body.classList.remove('shake'),600)}
 function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/1000);last=now;const tt=now/1000;
- if(state!='play'&&state!='over'){renderer.render(scene,cam);return}
+ if(state=='qte'&&qte){$('qtime').style.width=Math.max(0,(qte.end-now)/(qte.end-qte.start0||1)*100)+'%';if(now>qte.end){qte=null;$('qte').hidden=true;gotcha(now,qte0by)}}
+ if(state!='play'&&state!='over'&&state!='qte'){renderer.render(scene,cam);return}
  // lights: pool the N nearest fixtures to the player
  poolT-=dt;if(poolT<=0){poolT=.15;FIX.sort((a,b)=>((a.x-P.x)**2+(a.z-P.z)**2)-((b.x-P.x)**2+(b.z-P.z)**2));}
  POOL.forEach((l,i)=>{const fx=FIX[i];if(!fx){l.intensity=0;return}l.position.set(fx.x,fx.y,fx.z);l.color.setHex(fx.col);l.distance=fx.range;const v=RM?Math.max(.6,flickerVal(fx.grp,tt*.2,i)):flickerVal(fx.grp,tt,fx.x+fx.z);l.intensity=fx.int*v});
@@ -337,25 +367,27 @@ function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/
  let dist=99,vd=99;const [fx0,fz0]=fwd(P.yaw),[rx0,rz0]=rgt(P.yaw);
  if(state=='play'&&now>frozenUntil){
   if(keys.q||keys.arrowleft)P.yaw+=2.3*dt;if(keys.e||keys.arrowright)P.yaw-=2.3*dt;
-  const f=(keys.w||keys.arrowup?1:0)-(keys.s||keys.arrowdown?1:0),s=(keys.d?1:0)-(keys.a?1:0),run=keys.shift?1.25:1,v=CAST[who].spd*dt*run*(f<0?.7:1);
+  const f=(keys.w||keys.arrowup?1:0)-(keys.s||keys.arrowdown?1:0),s=(keys.d?1:0)-(keys.a?1:0),run=keys.shift&&!P.crouch?1.25:1,v=CAST[who].spd*dt*run*(f<0?.75:1)*(P.crouch?.45:1);
   const l=Math.hypot(f,s)||1;const moved=move(P,(fx0*f+rx0*s)/l*v,(fz0*f+rz0*s)/l*v,.38);
   const pf=Math.floor(P.stride/.5);P.stride+=moved*(f<0?-1:1);if(Math.floor(P.stride/.5)!=pf)footstep(!IN[Math.round(P.z/S)][Math.round(P.x/S)]);
-  P.mv=moved>.0005?(s&&!f?(s>0?2:3):1):0;
+  P.mv=moved>.0005?(s&&!f?(s>0?2:3):(f<0?4:1)):0;
   spd=Math.min(5.3,spd+dt*.03);dfT-=dt;if(dfT<=0){dfT=.2;buildDF()}
   const step=(M,sp)=>{const[tx,tz]=nextStep(M),dx=tx-M.x,dz=tz-M.z,d=Math.hypot(dx,dz)||1;const ox=M.x,oz=M.z;const st=Math.min(sp*dt,d);if(move(M,dx/d*st,dz/d*st,.3)<st*.2)move(M,-dz/d*st*(M.side||=1),dx/d*st*M.side,.3)||(M.side*=-1);M.vx=(M.x-ox)/dt;M.vz=(M.z-oz)/dt;return Math.hypot(M.x-ox,M.z-oz)};
-  J.moved=step(J,spd);const el=(now-t0)/1000;if(!V.on&&el>45){V.on=true;ver.visible=ver.userData.shadow.visible=true;showZone('SHE IS HERE TOO','verity is awake')}
-  V.moved=V.on?step(V,spd*.82):0;
+  {const gx=Math.round(P.x/S),gz=Math.round(P.z/S),dk=Math.min(Math.hypot(P.x-J.x,P.z-J.z),V.on?Math.hypot(P.x-V.x,P.z-V.z):99);hidden=!!P.crouch&&dk>3.2&&(!los(P,J)||!IN[gz][gx]||P.mv==0)}
+  const hs=(hidden?.35:1)*(window.__freeze?0:1);J.moved=step(J,spd*hs);const el=(now-t0)/1000;if(!V.on&&el>45){V.on=true;ver.visible=ver.userData.shadow.visible=true;showZone('SHE IS HERE TOO','verity is awake')}
+  V.moved=V.on?step(V,spd*.82*hs):0;
   dist=Math.hypot(P.x-J.x,P.z-J.z);vd=V.on?Math.hypot(P.x-V.x,P.z-V.z):99;
   const gx=Math.round(P.x/S),gz=Math.round(P.z/S),z=zoneAt(gx,gz);if(z!=lastZone){lastZone=z;showZone(z,IN[gz][gx]?'— inside —':'— outside —')}
-  const seen=dist<10&&los(P,J),cool=tt-lastScare>10;
+  const seen=!hidden&&dist<10&&los(P,J),cool=tt-lastScare>10;
   if(cool&&(dist<3||(seen&&!jSeen&&dist<7)))jumpscare('j',now);else if(cool&&vd<3)jumpscare('v',now);jSeen=seen;
+  $('obj').textContent=hidden?'HIDDEN. STAY LOW AND LET THEM PASS':(!V.on?'OBJECTIVE: ESCAPE COLLEGE ACADEMY. DON\'T GET CAUGHT':'OBJECTIVE: VERITY IS AWAKE. KEEP RUNNING OR CROUCH (C) TO HIDE');$('crouchB').classList.toggle('on',!!P.crouch);
   $('hud').textContent=`${CAST[who].n} · ${el.toFixed(1)}s · ${z} · JULIAN ${dist.toFixed(0)}m${V.on?` · VERITY ${vd.toFixed(0)}m`:''}`;
   const near=Math.min(dist,vd);$('vig').style.setProperty('--r',Math.max(0,(14-near)*16)+'px');
   cam.fov+=((near<8?54:62)-cam.fov)*dt*2;cam.updateProjectionMatrix();
   if(drone)drone.gain.value=.03+Math.max(0,(12-near))*.006;
   if(ac&&ac.currentTime>nextBeat){thump(55,.6);setTimeout(()=>thump(45,.4),130);nextBeat=ac.currentTime+Math.max(.28,Math.min(1.4,near/8))}
   if(Math.random()<dt*.04)distantScream();
-  if(dist<1.1)gotcha(now,'j');else if(vd<1.1)gotcha(now,'v');
+  if(now>grace){if(dist<1.1)startQTE(now,'j');else if(vd<1.1)startQTE(now,'v')}
  }
  // ---- environment blend indoor/outdoor ----
  const inside=IN[Math.round(P.z/S)]?.[Math.round(P.x/S)]?1:0;envK+=(inside-envK)*Math.min(1,dt*1.6);
@@ -363,28 +395,25 @@ function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/
  if(hum)hum.gain.value=.018*envK;if(crick){crick.gain.value=.025*(1-envK);if(Math.random()<dt*1.5*(1-envK))chirp()}
  // ---- over-the-shoulder camera ----
  let dy=P.yaw-camYaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));camYaw+=dy*Math.min(1,dt*14);
- const[fx,fz]=fwd(camYaw),[rx,rz]=rgt(camYaw);const BACK=2.55,SIDE=.62,EYE=2.05;
+ const[fx,fz]=fwd(camYaw),[rx,rz]=rgt(camYaw);const BACK=2.55,SIDE=.62,EYE=2.05-me?.userData.crouch*.6||2.05;
  const px=P.x+rx*SIDE*.4,pz=P.z+rz*SIDE*.4;let k=1;const tx=P.x-fx*BACK+rx*SIDE,tz=P.z-fz*BACK+rz*SIDE;
  for(;k>.15;k-=.05){const x=px+(tx-px)*k,z=pz+(tz-pz)*k;let ok=true;for(const[ox,oz]of[[.25,.25],[-.25,.25],[.25,-.25],[-.25,-.25]])if(tallSolid(Math.round((x+ox)/S),Math.round((z+oz)/S)))ok=false;if(ok)break}
  const want=new THREE.Vector3(px+(tx-px)*k,EYE-(1-k)*.25,pz+(tz-pz)*k);camPos.lerp(want,Math.min(1,dt*12));
  const sh=(!RM&&dist<6)?(6-dist)*.025:0,bobC=(!RM&&P.mv)?Math.sin(P.stride*Math.PI*2/1.0)*.035:0;
  cam.position.set(camPos.x+(Math.random()-.5)*sh,camPos.y+bobC+(Math.random()-.5)*sh,camPos.z+(Math.random()-.5)*sh);
- cam.lookAt(P.x+fx*6+rx*SIDE*.5,1.45,P.z+fz*6+rz*SIDE*.5);
+ cam.lookAt(P.x+fx*6+rx*SIDE*.5,1.45-(me?.userData.crouch||0)*.45,P.z+fz*6+rz*SIDE*.5);
  sky.position.copy(cam.position);moon.position.set(cam.position.x-120,cam.position.y+130,cam.position.z-160);
  // flashlight from the player's chest, pointing forward
  flash.position.set(P.x+rx*.3,1.5,P.z+rz*.3);flash.target.position.set(P.x+fx*9,.7,P.z+fz*9);flash.intensity=(!RM&&Math.random()<.012)?6:(inside?55:40);
- // ---- player sprite (back view while walking forward/back/idle; side run when strafing) ----
- if(me){const u=me.userData;me.position.set(P.x,0,P.z);me.rotation.y=camYaw;u.shadow.position.set(P.x,.03,P.z);
-  if(P.mv==2||P.mv==3)setFrame(me,CAST[who].side,Math.floor(Math.abs(P.stride)/.3),P.mv==3);
-  else if(P.mv==1)setFrame(me,CAST[who].back,Math.floor(P.stride/.2));
-  else setFrame(me,CAST[who].back,0);
-  const br=P.mv||RM?1:1+Math.sin(tt*2.2)*.006;me.scale.set(u.h*.5,u.h*br,1)}
- jul.position.set(J.x,RM?0:Math.random()*.03,J.z);jl.position.set(J.x,1.8,J.z);animActor(jul,J,dt,J.moved||0,'julian-chase',cam.position.x,cam.position.z,rx,rz);
- if(V.on){ver.position.set(V.x,0,V.z);animActor(ver,V,dt,V.moved||0,'verity-chase',cam.position.x,cam.position.z,rx,rz)}
+ // ---- player 3D rig ----
+ if(me){me.position.set(P.x,0,P.z);const st=P.mv==4?'back':P.mv==2||P.mv==3?'strafe':P.mv==1?'run':'idle';me.rotation.y=camYaw+Math.PI+(P.mv==2?-.25:P.mv==3?.25:0);
+  pose(me,Math.abs(P.stride)*Math.PI*2/1.0*(P.mv==4?1.3:1),P.mv?(P.mv==3?-1:1)*(keys.shift&&!P.crouch?1.2:1):0,st,P.crouch?1:0,dt,tt);if(st=='strafe')me.userData.hips.rotation.y=0}
+ jul.position.set(J.x,0,J.z);jl.position.set(J.x,1.8,J.z);animActor(jul,J,dt,J.moved||0,'julian',tt);
+ if(V.on){ver.position.set(V.x,0,V.z);animActor(ver,V,dt,V.moved||0,'verity',tt)}
  renderer.render(scene,cam)}
 requestAnimationFrame(loop);
 // idle backdrop for menus: slow orbit over Bailey Hall front
 (function menuCam(){if(state=='play'||state=='over')return;const t=performance.now()/9000;cam.position.set(7*S+Math.sin(t)*14,4,15*S+Math.cos(t)*4);cam.lookAt(7*S,3,11*S);P.x=7*S;P.z=14*S;requestAnimationFrame(menuCam)})();
 addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 // debug hook for automated screenshots
-window.__boa={P,J,V,G,cam,camPos,walk,DFc:()=>DF,W,H,begin:k=>{who=k||'ashaad';begin()},keys};
+window.__boa={mash,qteS:()=>qte,startQTE,R:{jul,ver},P,J,V,G,cam,camPos,walk,DFc:()=>DF,W,H,begin:k=>{who=k||'ashaad';begin()},keys};

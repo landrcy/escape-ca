@@ -36,7 +36,7 @@ p{margin:6px;color:#eee}.dim{color:#bbb;font-size:14px;font-family:monospace}
 button.go{font:bold 18px monospace;letter-spacing:4px;padding:12px 30px;background:#600;color:#fff;border:2px solid #f33;cursor:pointer}button.go:disabled{opacity:.3}
 #zone small{display:block;font-size:.38em;letter-spacing:6px;color:#c9b;margin-top:6px}
 #help{position:fixed;bottom:10px;right:14px;z-index:8;font:12px monospace;color:#999;text-shadow:0 0 3px #000}
-#hud{position:fixed;top:10px;left:12px;z-index:8;font:bold 17px monospace;text-shadow:0 0 4px #000,0 0 2px #000}
+#hud{position:fixed;top:58px;font-size:14px!important;left:12px;z-index:8;font:bold 17px monospace;text-shadow:0 0 4px #000,0 0 2px #000}
 #zone{position:fixed;top:18%;width:100%;text-align:center;z-index:8;font-size:clamp(20px,4vw,40px);letter-spacing:10px;opacity:0;transition:opacity 1s;text-shadow:0 0 12px #000,0 0 20px #a00;pointer-events:none}
 #js{position:fixed;inset:0;z-index:20;background:#000 center/cover no-repeat;display:none;mix-blend-mode:normal}
 #js.on{display:block;animation:jz .75s steps(10) forwards}
@@ -49,13 +49,21 @@ button.go{font:bold 18px monospace;letter-spacing:4px;padding:12px 30px;backgrou
 #touch button{height:60px;font-size:22px;background:rgba(255,255,255,.15);color:#fff;border:2px solid #fff;border-radius:8px}
 .shake{animation:sh .3s 4}@keyframes sh{25%{transform:translate(9px,-7px)}75%{transform:translate(-9px,7px)}}
 @media (prefers-reduced-motion:reduce){.shake,#grain,.flick,#over.strobe{animation:none!important}#js.on{animation:none}}
+#obj{position:fixed;top:0;left:0;right:0;z-index:9;text-align:center;padding:10px 8px;font:bold clamp(13px,2.2vw,20px) monospace;letter-spacing:3px;color:#fff;background:linear-gradient(rgba(0,0,0,.85),rgba(0,0,0,.4));border-bottom:2px solid #a00;text-shadow:0 0 4px #000}
+#hud[hidden]~#obj,#obj:empty{display:none}
+#crouchB{position:fixed;right:20px;bottom:40px;z-index:9;width:92px;height:92px;border-radius:50%;font:bold 15px monospace;background:rgba(255,255,255,.12);color:#fff;border:2px solid #fff}#crouchB.on{background:#600;border-color:#f33}
+#qte{position:fixed;inset:0;z-index:15;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,rgba(120,0,0,.25),rgba(0,0,0,.8));animation:qp .25s infinite alternate}#qte[hidden]{display:none}
+@keyframes qp{to{background-color:rgba(80,0,0,.3)}}
+#qte h2{font:bold clamp(28px,6vw,64px) Georgia;color:#f22;letter-spacing:6px;margin:0;text-shadow:0 0 18px #000}
+#qkeyB{margin:22px;font:bold 34px monospace;padding:22px 40px;background:#fff;color:#000;border:4px solid #f22;border-radius:12px;cursor:pointer;animation:qk .15s infinite alternate}@keyframes qk{to{transform:scale(1.1)}}
+.qbar{width:min(420px,80vw);height:16px;border:2px solid #fff;margin:6px}.qbar i{display:block;height:100%;background:#fff;width:0}#qtime{background:#f22!important}
 </style></head><body>
-<div id="vig"></div><div id="grain"></div><div id="hud" hidden></div><div id="help">WASD move · mouse / Q E turn · shift sprint</div><div id="zone"></div><div id="js"></div>
+<div id="vig"></div><div id="grain"></div><div id="hud" hidden></div><div id="obj"></div><div id="help">WASD move · mouse / Q E turn · shift sprint · C crouch to hide</div><button id="crouchB" hidden>CROUCH<br>HIDE</button><div id="qte" hidden><h2 id="qwho">JULIAN HAS YOU</h2><button id="qkeyB">MASH <span id="qkey">SPACE</span></button><div class="qbar"><i id="qbar"></i></div><div class="qbar"><i id="qtime"></i></div><p>mash SPACE / F or tap to break free</p></div><div id="zone"></div><div id="js"></div>
 <div id="title" class="scr"><img id="logo" src="assets/college-academy-logo.png" onerror="this.remove()"><h1 class="flick ab">BINDING OF ASHAAD 2</h1><div class="sub">ESCAPE COLLEGE ACADEMY</div><p style="margin-top:28px">Broward College · Central Campus · after hours</p><p class="dim">click / tap / space to begin · headphones recommended</p></div>
 <div id="intro" class="scr" hidden><div id="plate"></div><div id="lamp"></div><div id="bh"><div class="sign">BAILEY HALL</div><div class="col" style="left:8%"></div><div class="col" style="left:22%"></div><div class="glass"></div><div class="col" style="right:22%"></div><div class="col" style="right:8%"></div></div><div id="steps"></div><div id="van"></div><div id="crew"><i></i><i></i><i></i></div><div id="cone"></div><div id="cap"></div><p class="dim" style="position:absolute;top:10px;right:14px">click / space to skip</p></div>
 <div id="sel" class="scr" hidden style="cursor:default"><h1 style="font-size:clamp(22px,4vw,44px)">CHOOSE WHO RUNS</h1><div class="cards"></div><button class="go" disabled>RUN</button><p class="dim">Maggie keeps the shop. she isn't coming.</p></div>
 <div id="over" class="scr" hidden><h1 class="ab">GOTCHA</h1><p id="score"></p><p id="overline"></p><p class="dim">press R or click to try again</p></div>
-<div id="touch"><button data-k="q">⟲</button><button data-k="w">▲</button><button data-k="e">⟳</button><button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button></div>
+<div id="touch"><button data-k="q">⟲</button><button data-k="w">▲</button><button data-k="e">⟳</button><button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button><button data-k="c">⤓</button></div>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
 <script type="module" src="js/game.js"></script>
 </body></html>
