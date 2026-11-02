@@ -266,32 +266,43 @@ const LOOKS={ashaad:{skin:'#7a5440',hair:'#1a120c',shirt:0xd2d1d6,pants:0x0e141d
  julian:{skin:'#b8a89c',hair:'#0c0808',shirt:0x18131a,pants:0x1e1918,shoe:0x080606,kind:'julian',h:1.22},
  verity:{skin:'#3f2d10',hair:'#2a1a06',shirt:0x463a1a,pants:0x2a2010,shoe:0x040301,kind:'verity',h:1.12}};
 const BX=(w,h,d,y=0)=>new THREE.BoxGeometry(w,h,d).translate(0,y,0);
-const PHOTO={ashaad:['assets/ashaad-fullbody.jpg',[356,32,452,144],[280,192,540,520],[288,520,520,940]],
- emmanuel:['assets/emmanuel-survivor.jpg',[328,48,424,168],[216,200,496,560],[232,600,520,960]],
- landry:['assets/landry-fullbody.jpg',[264,40,360,160],[200,180,460,460],[240,460,448,960]],
- julian:['assets/julian-horror.jpg',[216,88,328,232],[160,200,420,600],[120,600,420,1000]],
- verity:['assets/verity-landry-evil.jpg',[160,32,304,208],[80,220,320,560],[40,560,340,1000]]};
-const PIMG={};const photoTex=(key,i)=>{const [src]=PHOTO[key],b=PHOTO[key][i],c=document.createElement('canvas');c.width=c.height=256;const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
- const draw=im=>{const g=c.getContext('2d');g.drawImage(im,b[0],b[1],b[2]-b[0],b[3]-b[1],0,0,256,256);if(i==1){const r=g.createRadialGradient(128,128,90,128,128,140);r.addColorStop(0,'rgba(0,0,0,0)');r.addColorStop(1,'rgba(0,0,0,0)');}t.needsUpdate=true};
- let im=PIMG[src];if(!im){im=PIMG[src]=new Image();im.src=src}if(im.complete&&im.naturalWidth)draw(im);else im.addEventListener('load',()=>draw(im));return t};
+// photo crop boxes [x0,y0,x1,y1] in 864x1152 source: face, torso (shirt only), viewer-left leg, viewer-right leg, hips
+const PHOTO={ashaad:['assets/ashaad-fullbody.jpg',[372,72,482,195],[310,200,545,555],[312,560,428,1000],[432,560,545,1000],[310,545,545,640]],
+ emmanuel:['assets/emmanuel-survivor.jpg',[388,88,505,205],[300,215,570,595],[250,610,425,985],[430,610,600,985],[285,590,580,690]],
+ landry:['assets/landry-fullbody.jpg',[365,85,485,200],[345,200,560,490],[352,495,452,1000],[452,495,560,1000],[320,480,540,580]],
+ julian:['assets/julian-horror.jpg',[362,115,505,275],[300,265,540,665],[268,680,405,1080],[420,680,600,1080],[290,660,530,760]],
+ verity:['assets/verity-landry-evil.jpg',[342,35,535,245],[300,230,560,515],[240,540,385,1045],[415,540,600,1045],[280,505,560,600]]};
+const PIMG={},PTEX={};
+// texture from a sub-rectangle of a crop box (fy0..fy1 = vertical fraction), stretched to fill the canvas
+const photoTex=(key,i,fy0=0,fy1=1)=>{const id=key+i+'_'+fy0+'_'+fy1;if(PTEX[id])return PTEX[id];const [src]=PHOTO[key],B=PHOTO[key][i],c=document.createElement('canvas');c.width=256;c.height=i==1?256:512;const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=ANISO;
+ const y0=B[1]+(B[3]-B[1])*fy0,y1=B[1]+(B[3]-B[1])*fy1;
+ const draw=im=>{const g=c.getContext('2d');g.drawImage(im,B[0],y0,B[2]-B[0],y1-y0,0,0,c.width,c.height);t.needsUpdate=true};
+ let im=PIMG[src];if(!im){im=PIMG[src]=new Image();im.src=src}if(im.complete&&im.naturalWidth)draw(im);else im.addEventListener('load',()=>draw(im));return PTEX[id]=t};
+// front planar projection: u from x, v from y over the geometry's own bounds, so the photo stretches over the faceted mesh
+// facing the camera (+z) the right way up; back faces get the mirrored same image instead of a wrapped seam
+const planarUV=(geo,mirror=false)=>{geo.computeBoundingBox();const bb=geo.boundingBox,p=geo.attributes.position,uv=geo.attributes.uv,w=bb.max.x-bb.min.x||1,h=bb.max.y-bb.min.y||1;
+ for(let i=0;i<p.count;i++){let u=(p.getX(i)-bb.min.x)/w;if(mirror)u=1-u;uv.setXY(i,u,(p.getY(i)-bb.min.y)/h)}uv.needsUpdate=true;return geo};
 const TAPER=(rt,rb,len,y,seg=7)=>new THREE.CylinderGeometry(rt,rb,len,seg,2).translate(0,y,0);
 function rig(key,glow=0){const L=LOOKS[key],std=(c,map)=>new THREE.MeshStandardMaterial({color:map?0xffffff:c,map:map||null,roughness:.8,flatShading:true,emissive:c,emissiveIntensity:glow*(map?.4:1),emissiveMap:map||null});
- const skinM=std(new THREE.Color(L.skin).getHex()),shirtM=std(L.shirt,photoTex(key,2)),pantsM=std(L.pants,photoTex(key,3)),shoeM=std(L.shoe),sleeveM=std(L.shirt),hairM=std(new THREE.Color(L.hair).getHex());
+ const skinM=std(new THREE.Color(L.skin).getHex()),shirtM=std(L.shirt,photoTex(key,2)),pantsM=std(L.pants,photoTex(key,5)),shoeM=std(L.shoe),sleeveM=std(L.shirt),hairM=std(new THREE.Color(L.hair).getHex());
  const root=new THREE.Group(),hips=new THREE.Group(),torso=new THREE.Group();root.add(hips);hips.position.y=.95;hips.add(torso);
  const add=(p,geo,m,x=0,y=0,z=0)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);p.add(o);return o};
- add(hips,TAPER(.17,.18,.2,0,8),pantsM).scale.z=.7;
- const ch=add(torso,TAPER(.23,.17,.52,.3,8),shirtM);ch.scale.z=.62;add(torso,new THREE.SphereGeometry(.23,8,3,0,Math.PI*2,0,Math.PI/2).translate(0,.555,0),sleeveM).scale.set(1,.25,.62);
+ add(hips,planarUV(TAPER(.17,.18,.2,0,8)),pantsM).scale.z=.7;
+ const ch=add(torso,planarUV(TAPER(.23,.17,.52,.3,8)),shirtM);ch.scale.z=.62;add(torso,new THREE.SphereGeometry(.23,8,3,0,Math.PI*2,0,Math.PI/2).translate(0,.555,0),sleeveM).scale.set(1,.25,.62);
  add(torso,TAPER(.06,.07,.12,.62,6),skinM);
  const neck=new THREE.Group();neck.position.y=.66;torso.add(neck);
  const hd=add(neck,new THREE.IcosahedronGeometry(.155,1),skinM,0,.15,0);hd.scale.set(.92,1.12,1);
  const faceM=new THREE.MeshStandardMaterial({map:photoTex(key,1),roughness:.7,flatShading:true,emissive:0xffffff,emissiveMap:photoTex(key,1),emissiveIntensity:L.kind?.35:.18});
- add(neck,new THREE.SphereGeometry(.152,10,7,0,Math.PI,Math.PI*.12,Math.PI*.72),faceM,0,.15,.012).scale.set(.95,1.15,1.04);
+ add(neck,planarUV(new THREE.SphereGeometry(.152,10,7,0,Math.PI,Math.PI*.12,Math.PI*.72)),faceM,0,.15,.012).scale.set(.95,1.15,1.04);
  if(L.kind!='verity')add(neck,new THREE.SphereGeometry(.165,8,4,0,Math.PI*2,0,Math.PI*.42),hairM,0,.17,-.01).scale.set(.95,1.1,1.02);
- const limb=(p,x,y,len,m1,m2,w=.12,end)=>{const a=new THREE.Group();a.position.set(x,y,0);p.add(a);add(a,TAPER(w*.62,w*.5,len/2,-len/4),m1);add(a,new THREE.IcosahedronGeometry(w*.55,0),m1);const b=new THREE.Group();b.position.y=-len/2;a.add(b);add(b,TAPER(w*.5,w*.38,len/2,-len/4),m2);if(end)add(b,end,shoeM,0,-len/2,.05);return[a,b]};
+ if(L.kind!='verity')add(neck,new THREE.SphereGeometry(.16,8,5,Math.PI,Math.PI,0,Math.PI*.7),hairM,0,.155,-.012).scale.set(.95,1.13,1.02);
+ const limb=(p,x,y,len,m1,m2,w=.12,end)=>{const a=new THREE.Group();a.position.set(x,y,0);p.add(a);add(a,planarUV(TAPER(w*.62,w*.5,len/2,-len/4)),m1);add(a,planarUV(new THREE.IcosahedronGeometry(w*.55,0)),m1);const b=new THREE.Group();b.position.y=-len/2;a.add(b);add(b,planarUV(TAPER(w*.5,w*.38,len/2,-len/4)),m2);if(end)add(b,end,shoeM,0,-len/2,.05);return[a,b]};
  const hand=new THREE.IcosahedronGeometry(.055,0).translate(0,-.33,0);
  const al=limb(torso,-.27,.5,.62,sleeveM,skinM,.12),ar=limb(torso,.27,.5,.62,sleeveM,skinM,.12);add(al[1],hand,skinM);add(ar[1],hand,skinM);
  const shoe=new THREE.BoxGeometry(.13,.08,.27,1,1,2);
- const ll=limb(hips,-.1,-.06,.86,pantsM,pantsM,.17,shoe),lr=limb(hips,.1,-.06,.86,pantsM,pantsM,.17,shoe);
+ const legM=(i,a,b)=>std(L.pants,photoTex(key,i,a,b));
+ // character's left leg (-x) appears on the viewer's left when facing camera
+ const ll=limb(hips,-.1,-.06,.86,legM(3,0,.5),legM(3,.5,1),.17,shoe),lr=limb(hips,.1,-.06,.86,legM(4,0,.5),legM(4,.5,1),.17,shoe);
  root.traverse(o=>{if(o.isMesh)o.castShadow=false});
  root.scale.setScalar(L.h||1);root.userData={hips,torso,neck,al,ar,ll,lr,crouch:0,key,mats:[skinM,shirtM,pantsM,shoeM]};
  const sh=new THREE.Mesh(new THREE.CircleGeometry(.45,20).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0,transparent:true,opacity:.55,depthWrite:false}));sh.position.y=.03;scene.add(sh);root.userData.shadow=sh;scene.add(root);return root}
@@ -469,3 +480,4 @@ addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProje
 
 // debug hook for automated screenshots
 window.__boa={mash,qteS:()=>qte,startQTE,R:{jul,ver},P,J,V,G,cam,camPos,walk,DFc:()=>DF,W,H,begin:k=>{who=k||'ashaad';begin()},CUT,toIntro,pickRig,jumpscare:k=>jumpscare(k,performance.now()),gotcha:b=>gotcha(performance.now(),b),keys};
+if(location.hash=='#lineup')window.__dbg={THREE,rig,pose,scene,cam,renderer};
