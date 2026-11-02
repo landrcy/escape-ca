@@ -1,0 +1,52 @@
+{
+ "ashaad-back": {
+  "frames": 8,
+  "cw": 256,
+  "ch": 512
+ },
+ "emmanuel-back": {
+  "frames": 8,
+  "cw": 256,
+  "ch": 512
+ },
+ "landry-back": {
+  "frames": 8,
+  "cw": 256,
+  "ch": 512
+ },
+ "ashaad-run": {
+  "frames": 6,
+  "cw": 256,
+  "ch": 512
+ },
+ "emmanuel-run": {
+  "frames": 6,
+  "cw": 256,
+  "ch": 512
+ },
+ "landry-run": {
+  "frames": 6,
+  "cw": 256,
+  "ch": 512
+ },
+ "julian-chase": {
+  "frames": 6,
+  "cw": 256,
+  "ch": 512
+ },
+ "verity-chase": {
+  "frames": 6,
+  "cw": 256,
+  "ch": 512
+ },
+ "julian-idle": {
+  "frames": 4,
+  "cw": 256,
+  "ch": 512
+ },
+ "verity-idle": {
+  "frames": 4,
+  "cw": 256,
+  "ch": 512
+ }
+}

@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Binding of Ashaad 2: Escape CA</title>
+<title>Binding of Ashaad 2: Escape College Academy</title>
 <style>
 html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Georgia,serif;color:#fff}
 canvas{display:block}
@@ -34,6 +34,8 @@ p{margin:6px;color:#eee}.dim{color:#bbb;font-size:14px;font-family:monospace}
 .card:hover,.card.on{border-color:#e11;box-shadow:0 0 24px #a00}.card.on img{filter:none}
 .card b{display:block;font-size:20px;letter-spacing:3px;margin-top:6px}.card small{color:#ccc;font-size:12px;font-family:monospace}
 button.go{font:bold 18px monospace;letter-spacing:4px;padding:12px 30px;background:#600;color:#fff;border:2px solid #f33;cursor:pointer}button.go:disabled{opacity:.3}
+#zone small{display:block;font-size:.38em;letter-spacing:6px;color:#c9b;margin-top:6px}
+#help{position:fixed;bottom:10px;right:14px;z-index:8;font:12px monospace;color:#999;text-shadow:0 0 3px #000}
 #hud{position:fixed;top:10px;left:12px;z-index:8;font:bold 17px monospace;text-shadow:0 0 4px #000,0 0 2px #000}
 #zone{position:fixed;top:18%;width:100%;text-align:center;z-index:8;font-size:clamp(20px,4vw,40px);letter-spacing:10px;opacity:0;transition:opacity 1s;text-shadow:0 0 12px #000,0 0 20px #a00;pointer-events:none}
 #js{position:fixed;inset:0;z-index:20;background:#000 center/cover no-repeat;display:none;mix-blend-mode:normal}
@@ -48,140 +50,12 @@ button.go{font:bold 18px monospace;letter-spacing:4px;padding:12px 30px;backgrou
 .shake{animation:sh .3s 4}@keyframes sh{25%{transform:translate(9px,-7px)}75%{transform:translate(-9px,7px)}}
 @media (prefers-reduced-motion:reduce){.shake,#grain,.flick,#over.strobe{animation:none!important}#js.on{animation:none}}
 </style></head><body>
-<div id="vig"></div><div id="grain"></div><div id="hud" hidden></div><div id="zone"></div><div id="js"></div>
+<div id="vig"></div><div id="grain"></div><div id="hud" hidden></div><div id="help">WASD move · mouse / Q E turn · shift sprint</div><div id="zone"></div><div id="js"></div>
 <div id="title" class="scr"><img id="logo" src="assets/college-academy-logo.png" onerror="this.remove()"><h1 class="flick ab">BINDING OF ASHAAD 2</h1><div class="sub">ESCAPE COLLEGE ACADEMY</div><p style="margin-top:28px">Broward College · Central Campus · after hours</p><p class="dim">click / tap / space to begin · headphones recommended</p></div>
 <div id="intro" class="scr" hidden><div id="plate"></div><div id="lamp"></div><div id="bh"><div class="sign">BAILEY HALL</div><div class="col" style="left:8%"></div><div class="col" style="left:22%"></div><div class="glass"></div><div class="col" style="right:22%"></div><div class="col" style="right:8%"></div></div><div id="steps"></div><div id="van"></div><div id="crew"><i></i><i></i><i></i></div><div id="cone"></div><div id="cap"></div><p class="dim" style="position:absolute;top:10px;right:14px">click / space to skip</p></div>
 <div id="sel" class="scr" hidden style="cursor:default"><h1 style="font-size:clamp(22px,4vw,44px)">CHOOSE WHO RUNS</h1><div class="cards"></div><button class="go" disabled>RUN</button><p class="dim">Maggie keeps the shop. she isn't coming.</p></div>
 <div id="over" class="scr" hidden><h1 class="ab">GOTCHA</h1><p id="score"></p><p id="overline"></p><p class="dim">press R or click to try again</p></div>
-<div id="touch"><span></span><button data-k="w">▲</button><span></span><button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button></div>
+<div id="touch"><button data-k="q">⟲</button><button data-k="w">▲</button><button data-k="e">⟳</button><button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button></div>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
-<script type="module">
-import * as THREE from 'three';
-const $=id=>document.getElementById(id);
-const RM=matchMedia('(prefers-reduced-motion: reduce)').matches,COARSE=matchMedia('(pointer:coarse)').matches;
-const CAST={ashaad:{n:'ASHAAD',img:'assets/ashaad-fullbody.jpg',run:'assets/anims/keyed/ashaad-run.png',fx:'the one they\'re looking for.',spd:5},
- emmanuel:{n:'EMMANUEL',img:'assets/emmanuel-survivor.jpg',run:'assets/anims/keyed/emmanuel-run.png',fx:'fast legs. bad cardio.',spd:5.3},
- landry:{n:'LANDRY',img:'assets/landry-fullbody.jpg',run:'assets/anims/keyed/landry-run.png',fx:'saw verity first. didn\'t say.',spd:4.9}};
-let who=null;
-// ---------- audio ----------
-let ac,nextBeat=0,drone;function audio(){if(!ac)try{ac=new AudioContext()}catch{}ac?.resume()}
-function tone(type,f0,f1,dur,v,delay=0){if(!ac)return;const t=ac.currentTime+delay,o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+dur);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+dur+.05)}
-function noise(dur,v){if(!ac)return;const b=ac.createBuffer(1,ac.sampleRate*dur,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);const s=ac.createBufferSource(),g=ac.createGain();g.gain.value=v;s.buffer=b;s.connect(g).connect(ac.destination);s.start()}
-const thump=(f,v)=>tone('sine',f,f*.7,.18,v);
-function scream(long){const L=long?2.6:.9;tone('sawtooth',1200,90,L,.35);tone('square',1500,140,L*.9,.15,.03);tone('sawtooth',700,60,L,.2,.06);noise(L*.7,.4)}
-function distantScream(){tone('sine',900+Math.random()*300,500,1.4,.03);tone('triangle',1100,700,1.2,.02,.1)}
-function startDrone(){if(!ac||drone)return;const o=ac.createOscillator(),o2=ac.createOscillator(),g=ac.createGain();o.frequency.value=41;o2.frequency.value=43.3;o.type=o2.type='sawtooth';g.gain.value=.035;const f=ac.createBiquadFilter();f.frequency.value=180;o.connect(f);o2.connect(f);f.connect(g).connect(ac.destination);o.start();o2.start();drone=g}
-// ---------- flow ----------
-let state='title';
-function toIntro(){audio();startDrone();state='intro';$('title').hidden=true;$('intro').hidden=false;
- const caps=['Bailey Hall. Central Campus.','11:47 PM.','they left us here.','the doors were already open.','something else stayed.'];let i=0;
- setTimeout(()=>$('van').classList.add('go'),900);tone('sawtooth',90,60,3,.06);
- const step=()=>{if(state!='intro')return;if(i>=caps.length)return toSelect();const c=$('cap');c.style.opacity=0;setTimeout(()=>{c.textContent=caps[i++];c.style.opacity=1;if(i==3||i==5)distantScream()},500);setTimeout(step,2600)};step()}
-function toSelect(){if(state=='select')return;state='select';$('intro').hidden=true;$('sel').hidden=false}
-addEventListener('mousemove',e=>$('cone').style.setProperty('--x',e.clientX/innerWidth*100+'%'));
-$('title').onclick=toIntro;$('intro').onclick=toSelect;
-const cards=document.querySelector('#sel .cards'),goB=document.querySelector('#sel .go');
-for(const k in CAST){const d=document.createElement('div');d.className='card';d.innerHTML=`<img src="${CAST[k].img}"><b>${CAST[k].n}</b><small>${CAST[k].fx}</small>`;
- d.onclick=()=>{who=k;cards.querySelectorAll('.card').forEach(c=>c.classList.toggle('on',c==d));goB.disabled=false;thump(80,.4)};cards.append(d)}
-goB.onclick=()=>who&&begin();
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=1;
- if(k==' '){if(state=='title')toIntro();else if(state=='intro')toSelect();else if(state=='select'&&who)begin()}
- if(k=='r'&&state=='over')begin()});
-addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
-// ---------- map: braided maze over campus zones ----------
-const W=41,H=29,S=4;let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
-const G=[...Array(H)].map(()=>Array(W).fill('#'));
-(function carve(){const st=[[1,1]];G[1][1]='.';while(st.length){const[x,z]=st.at(-1),n=[[2,0],[-2,0],[0,2],[0,-2]].map(([a,b])=>[x+a,z+b,x+a/2,z+b/2]).filter(([a,b])=>a>0&&b>0&&a<W-1&&b<H-1&&G[b][a]=='#');
- if(!n.length){st.pop();continue}const[a,b,c,d]=n[Math.floor(rnd()*n.length)];G[d][c]=G[b][a]='.';st.push([a,b])}})();
-for(let i=0;i<260;i++){const x=1+Math.floor(rnd()*(W-2)),z=1+Math.floor(rnd()*(H-2));if(G[z][x]=='#'&&((G[z][x-1]=='.'&&G[z][x+1]=='.')||(G[z-1][x]=='.'&&G[z+1][x]=='.')))G[z][x]='.'}
-const plaza=(x0,z0,w,h)=>{for(let z=z0;z<z0+h;z++)for(let x=x0;x<x0+w;x++)G[z][x]='.'};
-plaza(1,1,7,5);plaza(30,19,9,7);plaza(16,11,7,5);// Bailey steps, garage deck, lake clearing
-const ZONES=[['BAILEY HALL',0,0,14,10],['LIBRARY WALK',14,0,28,10],['PARKING GARAGE',28,0,41,15],['SEAHAWK LANE',0,10,14,29],['MEMORIAL LAKE PATH',14,10,28,20],['STUDENT SERVICES',14,20,28,29],['PARKING GARAGE',28,15,41,29]];
-const zoneAt=(gx,gz)=>(ZONES.find(([,a,b,c,d])=>gx>=a&&gx<c&&gz>=b&&gz<d)||['CAMPUS'])[0];
-const pStart=[3*S,3*S],jStart=[(W-3)*S,(H-3)*S],vStart=[(W-3)*S,2*S];
-// ---------- three ----------
-const renderer=new THREE.WebGLRenderer({antialias:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);document.body.prepend(renderer.domElement);
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x020103);scene.fog=new THREE.FogExp2(0x030204,.09);
-const cam=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.1,120);scene.add(new THREE.AmbientLight(0x30303a,.35));
-const tl=new THREE.TextureLoader(),tex=(u,f)=>{const t=tl.load(u,f);t.colorSpace=THREE.SRGBColorSpace;return t};
-const brick=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle='#1c1614';g.fillRect(0,0,64,64);for(let y=0;y<8;y++)for(let x=0;x<5;x++){g.fillStyle=`hsl(10,${15+Math.random()*15}%,${10+Math.random()*7}%)`;g.fillRect(x*16-(y%2)*8+1,y*8+1,14,6)}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.NearestFilter;t.colorSpace=THREE.SRGBColorSpace;return t})();
-const concrete=new THREE.MeshStandardMaterial({color:0x2a2a2c,roughness:1}),brickM=new THREE.MeshStandardMaterial({map:brick,roughness:.95});
-const walls=new Set(),wg=new THREE.BoxGeometry(S,3.6,S);
-G.forEach((r,z)=>r.forEach((c,x)=>{if(c!='#')return;walls.add(x+','+z);const zn=zoneAt(x,z);const m=new THREE.Mesh(wg,zn.includes('GARAGE')||zn.includes('LANE')?concrete:brickM);m.position.set(x*S,1.8,z*S);scene.add(m)}));
-const floor=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshStandardMaterial({color:0x111012,roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.set(W*S/2,0,H*S/2);scene.add(floor);
-// lake water in lake zone clearing
-const lake=new THREE.Mesh(new THREE.CircleGeometry(5,24),new THREE.MeshStandardMaterial({color:0x050a10,metalness:.9,roughness:.15}));lake.rotation.x=-Math.PI/2;lake.position.set(19*S,.02,13*S);scene.add(lake);
-// Bailey Hall columns at start plaza
-for(let i=0;i<5;i++){const c=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,6),concrete);c.position.set((1.5+i*1.2)*S,3,.7*S);scene.add(c)}
-// flickering sodium/LED lamps (shadowless PointLights kept sparse)
-const lamps=[];for(let z=1;z<H;z+=6)for(let x=1;x<W;x+=8){let gx=x,gz=z;while(G[gz]?.[gx]=='#')gx++;if(gx>=W)continue;const sod=rnd()<.6,l=new THREE.PointLight(sod?0xff9a3c:0xbfd8ff,8,13,1.7);l.position.set(gx*S,3.2,gz*S);l.userData={b:rnd()*9,dead:rnd()<.2};scene.add(l);lamps.push(l)}
-const flash=new THREE.SpotLight(0xfff1d0,30,26,.42,.5,1.2);scene.add(flash,flash.target);
-// sprites from 6-frame sheets
-function sheet(url,h,tint){const t=tex(url);t.repeat.set(1/6,1);t.magFilter=THREE.LinearFilter;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,color:tint,transparent:true,alphaTest:.1}));s.scale.set(h*.7,h,1);s.userData.t=t;scene.add(s);return s}
-const jul=sheet('assets/anims/keyed/julian-chase.png',2.6,0xff9a9a);const jl=new THREE.PointLight(0xff1010,8,7);scene.add(jl);
-const ver=sheet('assets/anims/keyed/verity-chase.png',2.5,0xc0a0ff);ver.visible=false;
-let me=null;
-// ---------- game ----------
-const P={x:0,z:0,yaw:0},J={x:0,z:0},V={x:0,z:0,on:false};let keys={},t0=0,spd=3.6,lastScare=-99,frozenUntil=0,lastZone='',jSeen=false;
-const hit=(x,z,r)=>{for(const gx of[Math.round((x-r)/S),Math.round((x+r)/S)])for(const gz of[Math.round((z-r)/S),Math.round((z+r)/S)])if(walls.has(gx+','+gz)||gx<0||gz<0||gx>=W||gz>=H)return true;return false};
-function move(o,dx,dz,r){if(!hit(o.x+dx,o.z,r))o.x+=dx;if(!hit(o.x,o.z+dz,r))o.z+=dz}
-const los=(a,b)=>{const d=Math.hypot(b.x-a.x,b.z-a.z),n=Math.ceil(d/.5);for(let i=1;i<n;i++){const x=a.x+(b.x-a.x)*i/n,z=a.z+(b.z-a.z)*i/n;if(walls.has(Math.round(x/S)+','+Math.round(z/S)))return false}return true};
-function nextStep(M){const g=(x,z)=>[Math.round(x/S),Math.round(z/S)],[sx,sz]=g(M.x,M.z),[tx,tz]=g(P.x,P.z);if(sx==tx&&sz==tz)return[P.x,P.z];
- const prev={[tx+','+tz]:1},q=[[tx,tz]];while(q.length){const[x,z]=q.shift();if(x==sx&&z==sz)break;for(const[a,b]of[[1,0],[-1,0],[0,1],[0,-1]]){const k=(x+a)+','+(z+b);if(!prev[k]&&G[z+b]?.[x+a]=='.'){prev[k]=[x,z];q.push([x+a,z+b])}}}
- const n=prev[sx+','+sz];return n&&n!==1?[n[0]*S,n[1]*S]:[P.x,P.z]}
-function begin(){audio();startDrone();if(me)scene.remove(me);me=sheet(CAST[who].run,1.9,0xffffff);
- [P.x,P.z]=pStart;[J.x,J.z]=jStart;[V.x,V.z]=vStart;V.on=false;ver.visible=false;P.yaw=Math.PI;spd=3.6;t0=performance.now();lastScare=-99;lastZone='';state='play';
- ['title','intro','sel','over'].forEach(i=>$(i).hidden=true);$('over').classList.remove('strobe');$('hud').hidden=false;document.body.classList.remove('shake');
- if(!COARSE)renderer.domElement.requestPointerLock?.()}
-$('over').onclick=()=>state=='over'&&begin();
-renderer.domElement.onclick=()=>{if(state=='play'&&!COARSE)renderer.domElement.requestPointerLock?.()};
-addEventListener('mousemove',e=>{if(document.pointerLockElement)P.yaw-=e.movementX*.0025});
-if(COARSE){$('touch').style.display='grid';$('touch').querySelectorAll('button').forEach(b=>{const k=b.dataset.k;b.ontouchstart=e=>{e.preventDefault();keys[k]=1};b.ontouchend=()=>keys[k]=0});
- let lx=null;renderer.domElement.addEventListener('touchmove',e=>{const x=e.touches[0].clientX;if(lx!=null)P.yaw-=(x-lx)*.006;lx=x});renderer.domElement.addEventListener('touchend',()=>lx=null)}
-const SCARE={};[['j','assets/anims/julian-jumpscare.png','assets/julian-horror.jpg'],['v','assets/anims/verity-jumpscare.png','assets/verity-landry-evil.jpg']].forEach(([k,a,b])=>{SCARE[k]={u:b,sheet:false};const i=new Image();i.onload=()=>SCARE[k]={u:a,sheet:true};i.src=a});
-function jumpscare(k,now){const sc=SCARE[k],img=sc.u;$('js').classList.toggle('sheet',sc.sheet);lastScare=now/1000;frozenUntil=now+(RM?400:800);const j=$('js');j.style.backgroundImage=`url(${img})`;j.classList.remove('on');void j.offsetWidth;j.classList.add('on');
- scream(false);if(!RM)document.body.classList.add('shake');setTimeout(()=>{j.classList.remove('on');document.body.classList.remove('shake')},RM?400:780)}
-function showZone(z){const e=$('zone');e.textContent=z;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,2200)}
-function gotcha(now,by){state='over';scream(true);document.exitPointerLock?.();$('hud').hidden=true;$('over').hidden=false;
- $('score').textContent=`${CAST[who].n} survived ${((now-t0)/1000).toFixed(1)}s`;$('overline').textContent=by=='v'?'verity was never landry.':'julian has finded '+CAST[who].n.toLowerCase()+'.';
- if(!RM){$('over').classList.add('strobe');document.body.classList.add('shake')}}
-
-let last=performance.now(),fr=0;
-function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/1000);last=now;const tt=now/1000;fr+=dt;
- lamps.forEach(l=>{const u=l.userData;l.intensity=u.dead?(Math.random()<.04?7:0):7+Math.sin(tt*11+u.b)*1.2-(Math.random()<.02?7:0)});
- const frame=Math.floor(fr*10)%6;[jul,me].forEach(s=>s&&(s.userData.t.offset.x=frame/6));
- let dist=99;
- if(state=='play'&&now>frozenUntil){
-  if(keys.q||keys.arrowleft)P.yaw+=2.2*dt;if(keys.e||keys.arrowright)P.yaw-=2.2*dt;
-  const f=(keys.w||keys.arrowup?1:0)-(keys.s||keys.arrowdown?1:0),s=(keys.d?1:0)-(keys.a?1:0),fx=-Math.sin(P.yaw),fz=-Math.cos(P.yaw),v=CAST[who].spd*dt*(keys.shift?1.25:1);
-  move(P,(fx*f-fz*s)*v,(fz*f+fx*s)*v,.4);
-  spd=Math.min(5.4,spd+dt*.03);const step=(M,sp)=>{const[tx,tz]=nextStep(M),dx=tx-M.x,dz=tz-M.z,d=Math.hypot(dx,dz)||1;move(M,dx/d*sp*dt,dz/d*sp*dt,.3)};step(J,spd);
-  const el=(now-t0)/1000;if(!V.on&&el>45){V.on=true;ver.visible=true;showZone('SHE IS HERE TOO')}
-  if(V.on)step(V,spd*.8);
-  dist=Math.hypot(P.x-J.x,P.z-J.z);const vd=V.on?Math.hypot(P.x-V.x,P.z-V.z):99;
-  const z=zoneAt(Math.round(P.x/S),Math.round(P.z/S));if(z!=lastZone){lastZone=z;showZone(z)}
-  // jumpscares: close range OR blind corner (julian suddenly in sight, near)
-  const seen=dist<9&&los(P,J),cool=tt-lastScare>10;
-  if(cool&&(dist<3||(seen&&!jSeen&&dist<7)))jumpscare('j',now);
-  else if(cool&&vd<3)jumpscare('v',now);
-  jSeen=seen;
-  $('hud').textContent=`${CAST[who].n} · ${el.toFixed(1)}s · ${z} · JULIAN ${dist.toFixed(0)}m${V.on?` · VERITY ${vd.toFixed(0)}m`:''}`;
-  const near=Math.min(dist,vd);$('vig').style.setProperty('--r',Math.max(0,(14-near)*16)+'px');
-  cam.fov+=((near<8?54:68)-cam.fov)*dt*2;cam.updateProjectionMatrix();
-  if(drone)drone.gain.value=.03+Math.max(0,(12-near))*.006;
-  if(ac&&ac.currentTime>nextBeat){thump(55,.6);setTimeout(()=>thump(45,.4),130);nextBeat=ac.currentTime+Math.max(.28,Math.min(1.4,near/8))}
-  if(Math.random()<dt*.04)distantScream();
-  if(dist<1.1)gotcha(now,'j');else if(vd<1.1)gotcha(now,'v');
- }
- if(state!='play'&&state!='over'){renderer.render(scene,cam);return}
- const bob=RM?0:Math.sin(tt*9)*.05;
- if(me){me.position.set(P.x,.95+bob,P.z);const mv=keys.w||keys.s||keys.a||keys.d||keys.arrowup||keys.arrowdown;if(!mv)me.userData.t.offset.x=0}
- jul.position.set(J.x,1.3+(RM?0:Math.random()*.04),J.z);jl.position.set(J.x,1.8,J.z);ver.position.set(V.x,1.2,V.z);
- const back=3,cx=P.x+Math.sin(P.yaw)*back,cz=P.z+Math.cos(P.yaw)*back;let k=1;for(;k>.2&&hit(P.x+(cx-P.x)*k,P.z+(cz-P.z)*k,.15);k-=.1);
- const sh=(!RM&&dist<6)?(6-dist)*.02:0;
- cam.position.set(P.x+(cx-P.x)*k+(Math.random()-.5)*sh,2.1,P.z+(cz-P.z)*k+(Math.random()-.5)*sh);cam.lookAt(P.x-Math.sin(P.yaw),1.3,P.z-Math.cos(P.yaw));
- flash.position.copy(cam.position);flash.target.position.set(P.x-Math.sin(P.yaw)*8,.8,P.z-Math.cos(P.yaw)*8);flash.intensity=(Math.random()<.015&&!RM)?4:30;
- renderer.render(scene,cam)}
-requestAnimationFrame(loop);
-addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-</script></body></html>
+<script type="module" src="js/game.js"></script>
+</body></html>
